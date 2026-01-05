@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "468751689016",
+    "project_id": "fraud-message-detector",
+    "storage_bucket": "fraud-message-detector.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:468751689016:android:0e33d90ee808f4228bcdcd",
+        "android_client_info": {
+          "package_name": "com.example.fraudmessagedetector"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDx90tPiIfgxU4g3MgwtZbxp0PqvrqDMLI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
