@@ -66,6 +66,14 @@ We utilize **Natural Language Processing (NLP)** to calculate the probability of
 2. **Frequency Analysis**: Words like `lottery`, `urgent`, and `click` are assigned higher fraud weights.
 3. **Naive Bayes**: We use probabilities to decide if a message is dangerous, achieving over **95% accuracy** on common scam templates.
 
+   <div align="center">
+
+   $$
+   P(Spam | Message) = \frac{P(Message | Spam) \cdot P(Spam)}{P(Message)}
+   $$
+
+   </div>
+
 ---
 
 ## 📥 Getting Started
