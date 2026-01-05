@@ -14,7 +14,7 @@
 
 ## 🚀 Overview
 
-**FraudShield** is a sophisticated mobile security application designed to protect users from the rising tide of SMS fraud, phishing, and promotional spam. Unlike traditional filters, FraudShield uses a **locally hosted Multinomial Naive Bayes model** to perform real-time, offline message analysis—ensuring maximum privacy and near-instant prediction speeds.
+**FraudShield** is a Advanced mobile security application designed to protect users from the rising tide of SMS fraud, phishing, and promotional spam. Unlike traditional filters, FraudShield uses a **locally hosted Multinomial Naive Bayes model** to perform real-time, offline message analysis—ensuring maximum privacy and near-instant prediction speeds.
 
 It serves as a complete replacement for your system SMS app, offering a secure dashboard, background scanning capabilities (similar to Truecaller), and deep integration with Firebase for secure history tracking.
 
@@ -116,4 +116,7 @@ For a deep dive into the implementation, checkout the [End-to-End Masterclass Gu
 
 <p align="center">
   Made with ❤️ for a safer mobile experience.
+  share your thought on this project 
+  hope you will like this project
+  
 </p>
