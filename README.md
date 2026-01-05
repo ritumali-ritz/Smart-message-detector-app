@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/images/readme_banner.png" alt="FraudShield Banner" width="100%">
+  <img src="assets/images/readme_banner.png" alt="FraudShield Banner" width="600">
 
   # 🛡️ FraudShield: AI-Powered SMS Security
   **Next-Gen Fraud Detection for the Modern Mobile Era**
