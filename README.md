@@ -118,7 +118,7 @@ FraudShield requires specific native permissions to function as a security layer
 
 ## 👨‍💻 Developer Guide
 
-For a deep dive into the implementation, checkout the [End-to-End Masterclass Guide](FRAUDSHIELD_MASTERCLASS_GUIDE.md).
+
 
 ---
 
