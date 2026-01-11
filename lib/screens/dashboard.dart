@@ -4,6 +4,10 @@ import 'package:flutter/services.dart';
 import '../services/ml_service.dart';
 import 'history.dart';
 import 'sms_inbox.dart';
+import 'feedback_screen.dart';
+import 'block_list.dart';
+import '../services/security_service.dart';
+import '../services/block_list_service.dart';
 import 'package:intl/intl.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -15,14 +19,48 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final MLService _mlService = MLService();
+  final SecurityService _securityService = SecurityService();
+  final BlockListService _blockListService = BlockListService();
   String _statusMessage = "Shield is Active";
+  bool _isDefaultSmsApp = false;
+  bool _appLockEnabled = false;
+  bool _isLocked = true;
   static const platform = MethodChannel('com.example.fraudmessagedetector/share');
 
   @override
   void initState() {
     super.initState();
     _mlService.loadModel();
+    _checkAppLock();
+    _checkDefaultSmsStatus();
     _checkSharedText();
+  }
+
+  Future<void> _checkAppLock() async {
+    final enabled = await _securityService.isLockEnabled();
+    setState(() => _appLockEnabled = enabled);
+    
+    if (enabled) {
+      final authenticated = await _securityService.authenticate();
+      if (authenticated) {
+        setState(() => _isLocked = false);
+      } else {
+        // If failed, we could exit or wait. For now, keep locked UI.
+      }
+    } else {
+      setState(() => _isLocked = false);
+    }
+  }
+
+  Future<void> _checkDefaultSmsStatus() async {
+    try {
+      final bool isDefault = await platform.invokeMethod('isDefaultSmsApp');
+      setState(() {
+        _isDefaultSmsApp = isDefault;
+      });
+    } catch (e) {
+      print("Error checking default SMS status: $e");
+    }
   }
 
   Future<void> _checkSharedText() async {
@@ -59,16 +97,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _showResultDialog(text, result);
   }
 
-  void _showResultDialog(String text, Map<String, dynamic> result) {
+  void _showResultDialog(String text, Map<String, dynamic> result, {String sender = "Manual Scan"}) {
+    bool isSpam = result['label'] == "Fraud/Spam";
+    bool hasLink = result['hasSuspiciousLink'] ?? false;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: Text(result['label'] == "Fraud/Spam" ? "🚨 FRUAD DETECTED" : "✅ Message is Safe", 
-          style: TextStyle(color: result['label'] == "Fraud/Spam" ? Colors.redAccent : Colors.greenAccent)),
-        content: Text("Analysis for:\n$text\n\nConfidence: ${result['confidence']}%", style: const TextStyle(color: Colors.white)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          children: [
+            Icon(isSpam ? Icons.warning_amber_rounded : Icons.verified_user_outlined, 
+                 color: isSpam ? Colors.redAccent : Colors.greenAccent, size: 40),
+            const SizedBox(height: 10),
+            Text(isSpam ? "🚨 FRAUD DETECTED" : "✅ SAFE MESSAGE", 
+                style: TextStyle(color: isSpam ? Colors.redAccent : Colors.greenAccent, fontSize: 18)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Sender: $sender", style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(10)),
+                child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 14)),
+              ),
+              const SizedBox(height: 15),
+              Text("Confidence: ${result['confidence'].toStringAsFixed(1)}%", style: const TextStyle(color: Colors.blueAccent)),
+              
+              if (hasLink) ...[
+                const SizedBox(height: 15),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Colors.orangeAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.link_off, color: Colors.orangeAccent, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(child: Text("Suspicious Link Detected! Avoid clicking URLs in this message.", 
+                          style: TextStyle(color: Colors.orangeAccent, fontSize: 12))),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
+          if (sender != "Manual Scan") ...[
+            TextButton(
+              onPressed: () async {
+                await _blockListService.addToWhitelist(sender);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Added $sender to Trusted list")));
+              },
+              child: const Text("Trust Sender", style: TextStyle(color: Colors.greenAccent)),
+            ),
+            TextButton(
+              onPressed: () async {
+                await _blockListService.addToBlacklist(sender);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Blocked $sender")));
+              },
+              child: const Text("Block Sender", style: TextStyle(color: Colors.redAccent)),
+            ),
+          ],
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close", style: TextStyle(color: Colors.white))),
         ],
       ),
     );
@@ -122,6 +221,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLocked) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0F172A),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_person, color: Colors.blueAccent, size: 80),
+              const SizedBox(height: 20),
+              const Text("FraudShield is Locked", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _checkAppLock,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                child: const Text("Unlock Now", style: TextStyle(color: Colors.white)),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: SafeArea(
@@ -159,29 +280,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 15),
               
-              // NEW: Set Default SMS Buttons
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                alignment: WrapAlignment.center,
-                children: [
-                  OutlinedButton.icon(
+              // NEW: Set Default SMS Button (Only shown if NOT default)
+              if (!_isDefaultSmsApp)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: OutlinedButton.icon(
                     onPressed: () async {
-                      print("Requesting Default SMS App change...");
                       try {
                         final result = await platform.invokeMethod('setDefaultSmsApp');
-                        print("Result from Native: $result");
                         if (result == true) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Requesting system dialog..."))
-                          );
-                        } else if (result == false) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("FraudShield is already your Default SMS App!"))
-                          );
+                          _checkDefaultSmsStatus();
                         }
                       } catch (e) {
-                        print("Error setting default SMS app: $e");
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Action failed: $e"))
                         );
@@ -189,34 +299,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.blueAccent,
+                      minimumSize: const Size(double.infinity, 50),
                       side: const BorderSide(color: Colors.blueAccent),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     ),
-                    icon: const Icon(Icons.settings_suggest, size: 18),
-                    label: const Text("Set as Default SMS App", style: TextStyle(fontSize: 12)),
+                    icon: const Icon(Icons.settings_suggest),
+                    label: const Text("Set FraudShield as Default SMS App"),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      try {
-                        await platform.invokeMethod('openDefaultAppsSettings');
-                      } catch (e) {
-                        print("Error opening settings: $e");
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                      side: BorderSide(color: Colors.redAccent.withOpacity(0.5)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    icon: const Icon(Icons.no_cell, size: 18),
-                    label: const Text("Remove as Default", style: TextStyle(fontSize: 12)),
+                ),
+              
+              // NEW: Security & Filters Section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.05)),
                   ),
-                ],
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.security, color: Colors.blueAccent, size: 20),
+                              SizedBox(width: 10),
+                              Text("App Lock Security", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          Switch(
+                            value: _appLockEnabled,
+                            activeColor: Colors.blueAccent,
+                            onChanged: (val) async {
+                              if (val) {
+                                bool canAuth = await _securityService.isBiometricAvailable();
+                                if (canAuth) {
+                                  await _securityService.setLockEnabled(true);
+                                  setState(() => _appLockEnabled = true);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Biometrics not available on this device"))
+                                  );
+                                }
+                              } else {
+                                await _securityService.setLockEnabled(false);
+                                setState(() => _appLockEnabled = false);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const Divider(color: Colors.white12, height: 30),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.block, color: Colors.redAccent, size: 20),
+                        title: const Text("Manage Blocked Senders", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BlockListScreen())),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               
-              const SizedBox(height: 50),
-              
-              // Latest Activity Card
+              const SizedBox(height: 20),
+              const Padding(
+test Activity Card
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
@@ -363,6 +514,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: const Icon(Icons.history, color: Colors.white70),
                 label: const Text("View All Scan History", style: TextStyle(color: Colors.white70)),
               ),
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FeedbackScreen())),
+                icon: const Icon(Icons.rate_review_outlined, color: Colors.blueAccent),
+                label: const Text("Help us improve: Rate FraudShield", style: TextStyle(color: Colors.blueAccent)),
+              ),
+              const SizedBox(height: 30),
+              
+              // Remove Default App Option at the very bottom
+              if (_isDefaultSmsApp)
+                TextButton.icon(
+                  onPressed: () async {
+                    try {
+                      await platform.invokeMethod('openDefaultAppsSettings');
+                    } catch (e) {
+                      print("Error opening settings: $e");
+                    }
+                  },
+                  icon: const Icon(Icons.no_cell, color: Colors.redAccent, size: 16),
+                  label: const Text("Remove FraudShield as Default", style: TextStyle(color: Colors.redAccent, fontSize: 13)),
+                ),
               const SizedBox(height: 40),
             ],
           ),

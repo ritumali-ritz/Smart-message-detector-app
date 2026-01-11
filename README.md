@@ -27,6 +27,7 @@ It serves as a complete replacement for your system SMS app, offering a secure d
 - 🛡️ **Spam & Phishing Detection**: Specifically trained to identify high-risk keywords like "KYC", "Blocked", and "Jackpot".
 - 📱 **Full SMS Suite**: Send, receive, and manage messages through a sleek, premium UI.
 - 🔥 **Firebase Sync**: Securely syncs your scan history across devices using Google Firebase.
+- ⭐ **User Feedback & Rating System**: Dedicated section for users to provide feedback and ratings, stored directly in Firestore.
 - 🎨 **Premium Glassmorphic UI**: High-end aesthetics with dark mode support and smooth micro-animations.
 
 ---

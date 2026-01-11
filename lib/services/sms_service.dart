@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'ml_service.dart';
 import 'notification_service.dart';
+import 'block_list_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 @pragma('vm:entry-point')
@@ -21,6 +22,18 @@ void backgrounSmsHandler(SmsMessage message) async {
     await backgroundMLService.loadModel();
     
     String text = message.body ?? "";
+    String sender = message.address ?? "Unknown";
+
+    final blockList = BlockListService();
+    if (await blockList.isWhitelisted(sender)) {
+      await NotificationService.showScanResult("Message from TRUSTED sender: $sender", "Safe", 100.0);
+      return;
+    }
+    if (await blockList.isBlacklisted(sender)) {
+      await NotificationService.showWarning("🚨 BLOCKED SENDER: $sender. Message ignored.");
+      return;
+    }
+
     final result = backgroundMLService.predict(text);
     
     // Save to Firebase for history
@@ -72,6 +85,18 @@ class SmsService {
     if (!_mlService.isLoaded) await _mlService.loadModel();
     
     String text = message.body ?? "";
+    String sender = message.address ?? "Unknown";
+    final blockList = BlockListService();
+
+    if (await blockList.isWhitelisted(sender)) {
+      NotificationService.showScanResult("Message from TRUSTED sender: $sender", "Safe", 100.0);
+      return;
+    }
+    if (await blockList.isBlacklisted(sender)) {
+      NotificationService.showWarning("🚨 BLOCKED SENDER: $sender. Message ignored.");
+      return;
+    }
+
     final result = _mlService.predict(text);
     
     await FirebaseFirestore.instance.collection('detections').add({
@@ -79,15 +104,15 @@ class SmsService {
       "label": result['label'],
       "confidence": result['confidence'],
       "timestamp": DateTime.now(),
-      "sender": message.address,
+      "sender": sender,
       "type": "automatic"
     });
 
     if (result['label'] == "Fraud/Spam") {
-      NotificationService.showWarning("🚨 SCAM DETECTED: [${message.address}]\n${text.substring(0, min(30, text.length))}...");
+      NotificationService.showWarning("🚨 SCAM DETECTED: [$sender]\n${text.substring(0, min(30, text.length))}...");
     } else {
       NotificationService.showScanResult(
-        "Sender: ${message.address}\nStatus: VERIFIED SAFE", 
+        "Sender: $sender\nStatus: VERIFIED SAFE", 
         "Safe", 
         result['confidence']
       );

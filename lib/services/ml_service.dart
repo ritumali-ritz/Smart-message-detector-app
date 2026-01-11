@@ -91,6 +91,8 @@ class MLService {
     return {
       "label": label,
       "confidence": (bestClassIndex == 1 ? fraudProb : (1 - fraudProb)) * 100,
+      "hasSuspiciousLink": hasLink,
+      "boostScore": boost,
     };
   }
 }
