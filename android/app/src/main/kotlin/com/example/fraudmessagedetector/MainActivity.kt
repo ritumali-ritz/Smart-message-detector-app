@@ -5,11 +5,11 @@ import android.os.Bundle
 import android.os.Build
 import android.app.role.RoleManager
 import android.provider.Telephony
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity: FlutterActivity() {
+class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.example.fraudmessagedetector/share"
     private var sharedText: String? = null
 
@@ -29,8 +29,13 @@ class MainActivity: FlutterActivity() {
                     result.success(sharedText)
                     sharedText = null
                 }
+                "isDefaultSmsApp" -> {
+                    val packageName = this.packageName
+                    val defaultPackage = Telephony.Sms.getDefaultSmsPackage(this)
+                    result.success(packageName == defaultPackage)
+                }
                 "setDefaultSmsApp" -> {
-                    val packageName = context.packageName
+                    val packageName = this.packageName
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         val roleManager = getSystemService(RoleManager::class.java)
                         if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_SMS)) {
@@ -47,7 +52,7 @@ class MainActivity: FlutterActivity() {
                         }
                     } else {
                         // Older versions
-                        if (Telephony.Sms.getDefaultSmsPackage(context) != packageName) {
+                        if (Telephony.Sms.getDefaultSmsPackage(this) != packageName) {
                             val intent = Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT)
                             intent.putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, packageName)
                             startActivity(intent)

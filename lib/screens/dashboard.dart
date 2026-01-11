@@ -45,7 +45,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (authenticated) {
         setState(() => _isLocked = false);
       } else {
-        // If failed, we could exit or wait. For now, keep locked UI.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Authentication Failed. Please try again."))
+        );
       }
     } else {
       setState(() => _isLocked = false);
@@ -352,22 +354,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ],
                       ),
-                      const Divider(color: Colors.white12, height: 30),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.block, color: Colors.redAccent, size: 20),
-                        title: const Text("Manage Blocked Senders", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BlockListScreen())),
-                      ),
                     ],
                   ),
                 ),
               ),
               
               const SizedBox(height: 20),
-              const Padding(
-test Activity Card
+              // Latest Activity Card
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
